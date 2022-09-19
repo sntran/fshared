@@ -1,4 +1,34 @@
 /**
+ * Đây là một HTTP handler nhỏ giúp giảm thiểu các thao tác tải file từ 
+ * FShare dùng tài khoản VIP.
+ * 
+ * Thay vì dùng trình duyệt mở link `https://fshare.vn/file/fileId` thì
+ * có thể đổi thành `https://server/file/fileId`, và trình duyệt sẽ hỏi
+ * username và password của tài khoản VIP và bắt đầu tải.
+ * 
+ * Do sử dụng Basic Authentication (popup hỏi username/password), lần sau
+ * người dùng sẽ không cần phải điền thông tin đăng nhập nữa. Nếu vì lý do
+ * gì đó mà không thể đăng nhập bằng thông tin sẵn có (đổi pass, hết VIP)
+ * thì trình duyệt sẽ hỏi lại thông tin.
+ * 
+ * Tuy mục đích sử dụng khá đơn giản, việc làm này giúp tự động hoá việc
+ * tải từ FShare, do Basic Authentication được hỗ trợ đầy đủ của phần lớn
+ * HTTP client, như `curl`. Một thư viện khác có thể tải hàng loạt bằng
+ * cách thêm username và password vào trước URL. Ví dụ:
+ * 
+ * ```shell
+ * curl -O 'https://user:pass@server/file/fileID'
+ * curl 'https://user:pass@server/file/fileID' | rclone rcat remote:path/to/file
+ * ```
+ * 
+ * Một số ý tưởng mở rộng:
+ * 
+ * - Range để resume.
+ * - Link folder.
+ * - Upload bằng POST.
+ */
+
+/**
  * Với một số thứ nhạy cảm như app key, hoặc những thứ cần tuỳ biến,
  * chúng ta lưu vào biến môi trường (environment variables), và dùng
  * `Deno.env.toObject()` để truy cập ra lúc chạy.
