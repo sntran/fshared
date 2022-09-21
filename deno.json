@@ -1,6 +1,8 @@
 {
   "tasks": {
-    "cli": "deno run --unstable -A main.ts"
+    "cli": "deno run --unstable -A main.ts",
+    "download": "deno run --unstable -A main.ts download -LO",
+    "upload": "deno run --unstable -A main.ts upload -L"
   },
   "importMap": "./import_map.json"
 }

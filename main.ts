@@ -1,6 +1,6 @@
 #!/usr/bin/env -S deno run --allow-net --allow-env
 
-import { parseFlags } from "./deps.ts";
+import { basename, join, parseFlags } from "./deps.ts";
 
 import { Client } from "./client.ts";
 
@@ -83,9 +83,11 @@ if (output) {
   })).writable;
 }
 
+const redirect = location ? "follow" : "manual";
+
 if (command === "download") {
   const { url, body } = await client.download(args[0], {
-    redirect: location ? "follow" : "manual",
+    redirect,
   });
 
   if (remoteName) {
@@ -100,4 +102,33 @@ if (command === "download") {
   if (body) {
     body.pipeTo(writable);
   }
+}
+
+if (command === "upload") {
+  const input = args[0], path = args[1] || "/";
+  if (!input) {
+    console.error("Missing input file");
+    Deno.exit(1);
+  }
+
+  const file = await Deno.open(input, {
+    read: true,
+    write: false,
+  });
+
+  const response = await client.upload(join(path, basename(input)), {
+    redirect,
+    headers: {
+      "Content-Length": (await file.stat()).size,
+    },
+    body: file.readable,
+  });
+
+  if (!response.ok) {
+    console.error("Upload failed");
+    Deno.exit(1);
+  }
+
+  const { url } = await response.json();
+  console.log(url);
 }
