@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run --allow-net --allow-env
+#!/usr/bin/env -S deno run --allow-net --allow-env --allow-read --allow-write
 
 import { basename, join, parseFlags } from "./deps.ts";
 
@@ -21,6 +21,8 @@ const flags = parseFlags(Deno.args, {
     "body",
     /** Output filename */
     "output",
+    /** The exact size of the input stream if known in advance. */
+    "size",
   ],
   collect: [
     "header",
@@ -51,6 +53,7 @@ const {
 
 let {
   output,
+  size,
 } = flags;
 
 const headers = [].concat(header).reduce((headers, header: string) => {
@@ -111,17 +114,31 @@ if (command === "upload") {
     Deno.exit(1);
   }
 
-  const file = await Deno.open(input, {
-    read: true,
-    write: false,
-  });
+  let body: BodyInit;
+  const headers: HeadersInit = {};
+  headers["Content-Length"] = size;
+
+  if (input === "-") {
+    body = Deno.stdin.readable;
+    if (!size) {
+      console.error("Must provide size for input from stdin");
+      Deno.exit(1);
+    }
+  } else {
+    const file = await Deno.open(input, {
+      read: true,
+      write: false,
+    });
+    body = file.readable;
+    if (!size) {
+      headers["Content-Length"] = `${(await file.stat()).size}`;
+    }
+  }
 
   const response = await client.upload(join(path, basename(input)), {
     redirect,
-    headers: {
-      "Content-Length": (await file.stat()).size,
-    },
-    body: file.readable,
+    headers,
+    body,
   });
 
   if (!response.ok) {
