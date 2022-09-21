@@ -331,6 +331,33 @@ export class Client implements FShareClient {
       headers,
     });
   }
+
+  /**
+   * Creates a folder under a parent folder.
+   *
+   * The parent can be `0` for root, or `linkcode` of another folder.
+   */
+  async createFolder(name: string, parent = "0"): Promise<Response> {
+    const headers = this.#headers;
+    let token = this.#token;
+    if (!token) {
+      const response = await this.login();
+      if (!response.ok) {
+        return response;
+      }
+      token = this.#token;
+    }
+
+    return fetch(`${API_URL}/fileops/createFolder`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        name,
+        token,
+        in_dir: parent,
+      }),
+    });
+  }
 }
 
 /**
