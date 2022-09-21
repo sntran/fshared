@@ -94,6 +94,17 @@ export class Client implements FShareClient {
   }
 
   /**
+   * Gets user's information.
+   */
+  user(): Promise<Response> {
+    const headers = this.#headers;
+
+    return fetch(`${API_URL}/user/get`, {
+      headers,
+    });
+  }
+
+  /**
    * Downloads a file from FShare URL.
    *
    * A full URL is required, e.g. https://www.fshare.vn/file/XXXXXXXXXX, or
