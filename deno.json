@@ -1,0 +1,6 @@
+{
+  "tasks": {
+    "cli": "deno run --unstable -A main.ts"
+  },
+  "importMap": "./import_map.json"
+}
