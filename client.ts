@@ -11,8 +11,19 @@ const authResponse = new Response("401 Unauthorized", {
 
 export interface FShareClient {
   login(): Promise<Response>;
-  download(url: string | URL, init?: RequestInit): Promise<Response>;
+  logout(): Promise<Response>;
+  user(): Promise<Response>;
   upload(url: string | URL, init?: RequestInit): Promise<Response>;
+  download(url: string | URL, init?: RequestInit): Promise<Response>;
+  list(params: Partial<ListParams>): Promise<Response>;
+}
+
+export interface ListParams {
+  pageIndex: number;
+  dirOnly: 0 | 1;
+  limit: number;
+  path: string;
+  ext: string;
 }
 
 export class Client implements FShareClient {
@@ -100,84 +111,6 @@ export class Client implements FShareClient {
     const headers = this.#headers;
 
     return fetch(`${API_URL}/user/get`, {
-      headers,
-    });
-  }
-
-  /**
-   * Downloads a file from FShare URL.
-   *
-   * A full URL is required, e.g. https://www.fshare.vn/file/XXXXXXXXXX, or
-   * just the file ID, e.g. XXXXXXXXXX. An optional `init` object can be passed
-   * to customize the request.
-   *
-   * Similar to a regular `fetch`, if `init.redirect` is set to `manual`, the
-   * response is empty with the direct download link in `Location` header.
-   * Otherwise, the response is a `ReadableStream` of the file content.
-   *
-   * ```ts
-   * import { Client } from "./client.ts";
-   * const client = await Client.connect("user", "pass");
-   *
-   * let response = await client.download("XXXXXXXXXX");
-   * await response.body!.pipeTo(Deno.stdout.writable);
-   *
-   * response = await client.download("https://www.fshare.vn/file/XXXXXXXXXX");
-   * await response.body!.pipeTo(Deno.stdout.writable);
-   *
-   * response = await client.download("XXXXXXXXXX", { redirect: "manual" });
-   * console.log(response.headers.get("Location"));
-   * ```
-   */
-  async download(url: string | URL, init: RequestInit = {}): Promise<Response> {
-    const headers = new Headers(this.#headers);
-    let token = this.#token;
-
-    if (!token) {
-      const response = await this.login();
-      if (!response.ok) {
-        return response;
-      }
-      token = this.#token;
-    }
-
-    // Clears "Authorization" header before passing to fetch.
-    headers.delete("Authorization");
-
-    url = new URL(url, "https://www.fshare.vn/file/");
-    const password = url.searchParams.get("password");
-    url.searchParams.delete("password");
-
-    const {
-      method = "POST",
-      redirect = "follow",
-    } = init;
-
-    const response = await fetch(`${API_URL}/session/download`, {
-      method,
-      headers,
-      body: JSON.stringify({
-        url,
-        token,
-        password,
-      }),
-    });
-
-    const { location } = await response.json();
-
-    if (!location) {
-      return authResponse;
-    }
-
-    if (redirect === "manual") {
-      return Response.redirect(location, 303);
-    }
-    if (redirect === "error") {
-      throw new Error(`Redirected to ${location}`);
-    }
-
-    return fetch(location, {
-      method: "GET",
       headers,
     });
   }
@@ -299,6 +232,104 @@ export class Client implements FShareClient {
     }
 
     return response;
+  }
+
+  /**
+   * Downloads a file from FShare URL.
+   *
+   * A full URL is required, e.g. https://www.fshare.vn/file/XXXXXXXXXX, or
+   * just the file ID, e.g. XXXXXXXXXX. An optional `init` object can be passed
+   * to customize the request.
+   *
+   * Similar to a regular `fetch`, if `init.redirect` is set to `manual`, the
+   * response is empty with the direct download link in `Location` header.
+   * Otherwise, the response is a `ReadableStream` of the file content.
+   *
+   * ```ts
+   * import { Client } from "./client.ts";
+   * const client = await Client.connect("user", "pass");
+   *
+   * let response = await client.download("XXXXXXXXXX");
+   * await response.body!.pipeTo(Deno.stdout.writable);
+   *
+   * response = await client.download("https://www.fshare.vn/file/XXXXXXXXXX");
+   * await response.body!.pipeTo(Deno.stdout.writable);
+   *
+   * response = await client.download("XXXXXXXXXX", { redirect: "manual" });
+   * console.log(response.headers.get("Location"));
+   * ```
+   */
+  async download(url: string | URL, init: RequestInit = {}): Promise<Response> {
+    const headers = new Headers(this.#headers);
+    let token = this.#token;
+
+    if (!token) {
+      const response = await this.login();
+      if (!response.ok) {
+        return response;
+      }
+      token = this.#token;
+    }
+
+    // Clears "Authorization" header before passing to fetch.
+    headers.delete("Authorization");
+
+    url = new URL(url, "https://www.fshare.vn/file/");
+    const password = url.searchParams.get("password");
+    url.searchParams.delete("password");
+
+    const {
+      method = "POST",
+      redirect = "follow",
+    } = init;
+
+    const response = await fetch(`${API_URL}/session/download`, {
+      method,
+      headers,
+      body: JSON.stringify({
+        url,
+        token,
+        password,
+      }),
+    });
+
+    const { location } = await response.json();
+
+    if (!location) {
+      return authResponse;
+    }
+
+    if (redirect === "manual") {
+      return Response.redirect(location, 303);
+    }
+    if (redirect === "error") {
+      throw new Error(`Redirected to ${location}`);
+    }
+
+    return fetch(location, {
+      method: "GET",
+      headers,
+    });
+  }
+
+  /**
+   * Get user's file/folder list
+   */
+  list(params: Partial<ListParams>): Promise<Response> {
+    params = {
+      pageIndex: 0,
+      dirOnly: 0,
+      limit: 100,
+      path: "",
+      ext: "",
+      ...params,
+    };
+    const headers = this.#headers;
+    const searchParams = new URLSearchParams(params as Record<string, string>);
+
+    return fetch(`${API_URL}/fileops/list?${searchParams}`, {
+      headers,
+    });
   }
 }
 
