@@ -16,6 +16,8 @@ export interface FShareClient {
   upload(url: string | URL, init?: RequestInit): Promise<Response>;
   download(url: string | URL, init?: RequestInit): Promise<Response>;
   list(params: Partial<ListParams>): Promise<Response>;
+  createFolder(name: string, parent: linkcode): Promise<Response>;
+  rename(from: linkcode, to: string): Promise<Response>;
 }
 
 export interface ListParams {
@@ -25,6 +27,8 @@ export interface ListParams {
   path: string;
   ext: string;
 }
+
+export type linkcode = "0" | string;
 
 export class Client implements FShareClient {
   #headers: Headers;
@@ -337,7 +341,7 @@ export class Client implements FShareClient {
    *
    * The parent can be `0` for root, or `linkcode` of another folder.
    */
-  async createFolder(name: string, parent = "0"): Promise<Response> {
+  async createFolder(name: string, parent: linkcode = "0"): Promise<Response> {
     const headers = this.#headers;
     let token = this.#token;
     if (!token) {
@@ -355,6 +359,31 @@ export class Client implements FShareClient {
         name,
         token,
         in_dir: parent,
+      }),
+    });
+  }
+
+  /**
+   * Renames a file or folder using its `linkcode`.
+   */
+  async rename(from: linkcode, to: string): Promise<Response> {
+    const headers = this.#headers;
+    let token = this.#token;
+    if (!token) {
+      const response = await this.login();
+      if (!response.ok) {
+        return response;
+      }
+      token = this.#token;
+    }
+
+    return fetch(`${API_URL}/fileops/rename`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        new_name: to,
+        file: from,
+        token,
       }),
     });
   }
