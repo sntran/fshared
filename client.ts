@@ -209,7 +209,10 @@ export class Client implements FShareClient {
     const { pathname } = new URL(url, "https://www.fshare.vn/");
     const segments = pathname.split("/");
     const name = segments.pop();
-    const path = "/" + segments.join("/");
+    let path = segments.join("/");
+    if (!path) {
+      path = "/";
+    }
 
     const {
       method = "POST",
