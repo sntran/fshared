@@ -250,10 +250,6 @@ export class Client implements FShareClient {
     }
 
     const chunkSize = 65536 * 1024 / 4; // 16MB
-    const chunks = Math.ceil(size / chunkSize);
-    console.info(
-      `Uploading ${chunks} chunks of approximately ${chunkSize} bytes each...`,
-    );
 
     let start = 0;
     for await (
@@ -277,10 +273,6 @@ export class Client implements FShareClient {
         },
         body: chunk,
       });
-
-      if (response.ok) {
-        console.info(`Uploaded chunk ${range}`);
-      }
     }
 
     return response;

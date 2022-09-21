@@ -1,8 +1,30 @@
 #!/usr/bin/env -S deno run --allow-net --allow-env --allow-read --allow-write
 
-import { basename, join, parseFlags } from "./deps.ts";
+import { basename, join, parseFlags, ProgressBar } from "./deps.ts";
 
 import { Client } from "./client.ts";
+
+/**
+ * Displays progress of a ReadableStream.
+ */
+class Progress extends TransformStream {
+  constructor(total?: number) {
+    let progressBar: ProgressBar, completed = 0;
+    if (total) {
+      progressBar = new ProgressBar({
+        total,
+      });
+    }
+
+    super({
+      transform: (chunk: Uint8Array, controller: TransformStreamDefaultController) => {
+        completed += chunk.byteLength;
+        progressBar?.render(completed);
+        controller.enqueue(chunk);
+      },
+    });
+  }
+}
 
 const flags = parseFlags(Deno.args, {
   boolean: [
@@ -10,6 +32,11 @@ const flags = parseFlags(Deno.args, {
     "location",
     /** Whether to use remote name as output. */
     "remote-name",
+    /** Whether to show progress bar. */
+    "progress",
+  ],
+  negatable: [
+    "progress",
   ],
   string: [
     "_",
@@ -39,6 +66,7 @@ const flags = parseFlags(Deno.args, {
   default: {
     user: Deno.env.get("FSHARE_USER_EMAIL"),
     pass: Deno.env.get("FSHARE_PASSWORD"),
+    progress: true,
   },
 });
 
@@ -48,6 +76,7 @@ const {
   header,
   location,
   remoteName,
+  progress,
   _: [command, ...args],
 } = flags;
 
@@ -89,7 +118,7 @@ if (output) {
 const redirect = location ? "follow" : "manual";
 
 if (command === "download") {
-  const { url, body } = await client.download(args[0], {
+  const { url, body, headers } = await client.download(args[0], {
     redirect,
   });
 
@@ -103,7 +132,10 @@ if (command === "download") {
   }
 
   if (body) {
-    body.pipeTo(writable);
+    const size = Number(headers.get("Content-Length"));
+    body
+      .pipeThrough(new Progress(progress? size : undefined))
+      .pipeTo(writable);
   }
 }
 
@@ -116,7 +148,6 @@ if (command === "upload") {
 
   let body: BodyInit;
   const headers: HeadersInit = {};
-  headers["Content-Length"] = size;
 
   if (input === "-") {
     body = Deno.stdin.readable;
@@ -131,14 +162,16 @@ if (command === "upload") {
     });
     body = file.readable;
     if (!size) {
-      headers["Content-Length"] = `${(await file.stat()).size}`;
+      size = `${(await file.stat()).size}`;
     }
   }
+
+  headers["Content-Length"] = size;
 
   const response = await client.upload(join(path, basename(input)), {
     redirect,
     headers,
-    body,
+    body: body.pipeThrough(new Progress(progress? size : undefined)),
   });
 
   if (!response.ok) {
