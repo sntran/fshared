@@ -81,6 +81,18 @@ export class Client implements FShareClient {
     });
   }
 
+  async logout(): Promise<Response> {
+    const headers = this.#headers;
+    const response = await fetch(`${API_URL}/user/logout`, {
+      headers,
+    });
+
+    this.#token = "";
+    headers.delete("Cookie");
+
+    return response;
+  }
+
   /**
    * Downloads a file from FShare URL.
    *
