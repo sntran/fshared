@@ -17,7 +17,8 @@ export interface FShareClient {
   download(url: string | URL, init?: RequestInit): Promise<Response>;
   list(params: Partial<ListParams>): Promise<Response>;
   createFolder(name: string, parent: linkcode): Promise<Response>;
-  rename(from: linkcode, to: string): Promise<Response>;
+  rename(item: linkcode, to: string): Promise<Response>;
+  move(item: linkcode, to: linkcode): Promise<Response>;
 }
 
 export interface ListParams {
@@ -366,7 +367,7 @@ export class Client implements FShareClient {
   /**
    * Renames a file or folder using its `linkcode`.
    */
-  async rename(from: linkcode, to: string): Promise<Response> {
+  async rename(item: linkcode, to: string): Promise<Response> {
     const headers = this.#headers;
     let token = this.#token;
     if (!token) {
@@ -381,8 +382,33 @@ export class Client implements FShareClient {
       method: "POST",
       headers,
       body: JSON.stringify({
+        file: item,
         new_name: to,
-        file: from,
+        token,
+      }),
+    });
+  }
+
+  /**
+   * Moves a file or folder using its `linkcode` to a new root.
+   */
+  async move(item: linkcode, to: linkcode): Promise<Response> {
+    const headers = this.#headers;
+    let token = this.#token;
+    if (!token) {
+      const response = await this.login();
+      if (!response.ok) {
+        return response;
+      }
+      token = this.#token;
+    }
+
+    return fetch(`${API_URL}/fileops/move`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        item,
+        to,
         token,
       }),
     });
