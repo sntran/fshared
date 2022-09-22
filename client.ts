@@ -21,6 +21,9 @@ export interface FShareClient {
   move(item: linkcode, to: linkcode): Promise<Response>;
   move(items: linkcode[], to: linkcode): Promise<Response>;
   move(items: linkcode | linkcode[], to: linkcode): Promise<Response>;
+  delete(item: linkcode): Promise<Response>;
+  delete(items: linkcode[]): Promise<Response>;
+  delete(items: linkcode | linkcode[]): Promise<Response>
 }
 
 export interface ListParams {
@@ -401,6 +404,24 @@ export class Client implements FShareClient {
       body: JSON.stringify({
         items,
         to,
+      }),
+    });
+  }
+
+  /**
+   * Deletes file(s) or folder(s) using their `linkcode`.
+   */
+  delete(item: linkcode): Promise<Response>;
+  delete(items: linkcode[]): Promise<Response>;
+  delete(items: linkcode | linkcode[]): Promise<Response> {
+    if (!Array.isArray(items)) {
+      items = [items];
+    }
+
+    return this.fetch("fileops/delete", {
+      method: "POST",
+      body: JSON.stringify({
+        items,
       }),
     });
   }
