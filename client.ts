@@ -23,7 +23,10 @@ export interface FShareClient {
   move(items: linkcode | linkcode[], to: linkcode): Promise<Response>;
   delete(item: linkcode): Promise<Response>;
   delete(items: linkcode[]): Promise<Response>;
-  delete(items: linkcode | linkcode[]): Promise<Response>
+  delete(items: linkcode | linkcode[]): Promise<Response>;
+  createFilePass(item: linkcode, password: string): Promise<Response>;
+  createFilePass(items: linkcode[], password: string): Promise<Response>;
+  createFilePass(items: linkcode | linkcode[], password: string): Promise<Response>;
 }
 
 export interface ListParams {
@@ -422,6 +425,25 @@ export class Client implements FShareClient {
       method: "POST",
       body: JSON.stringify({
         items,
+      }),
+    });
+  }
+
+  /**
+   * Sets password for file(s) using their `linkcode`.
+   */
+  createFilePass(item: linkcode, password: string): Promise<Response>;
+  createFilePass(items: linkcode[], password: string): Promise<Response>;
+  createFilePass(items: linkcode | linkcode[], password: string): Promise<Response> {
+    if (!Array.isArray(items)) {
+      items = [items];
+    }
+
+    return this.fetch("fileops/createFilePass", {
+      method: "POST",
+      body: JSON.stringify({
+        items,
+        pass: password,
       }),
     });
   }
