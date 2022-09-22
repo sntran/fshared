@@ -27,6 +27,9 @@ export interface FShareClient {
   createFilePass(item: linkcode, password: string): Promise<Response>;
   createFilePass(items: linkcode[], password: string): Promise<Response>;
   createFilePass(items: linkcode | linkcode[], password: string): Promise<Response>;
+  changeSecure(item: linkcode, status: toggle): Promise<Response>;
+  changeSecure(items: linkcode[], status: toggle): Promise<Response>;
+  changeSecure(items: linkcode | linkcode[], status: toggle): Promise<Response>;
 }
 
 export interface ListParams {
@@ -38,6 +41,7 @@ export interface ListParams {
 }
 
 export type linkcode = "0" | string;
+export type toggle = 0 | 1 | "0" | "1";
 
 export class Client implements FShareClient {
   #headers: Headers;
@@ -444,6 +448,27 @@ export class Client implements FShareClient {
       body: JSON.stringify({
         items,
         pass: password,
+      }),
+    });
+  }
+
+  /**
+   * Toggles files(s) secure storage using their `linkcode`.
+   *
+   * Setting `status` 1 to put the items in secure storage, 0 to remove them.
+   */
+  changeSecure(item: linkcode, status: toggle): Promise<Response>;
+  changeSecure(items: linkcode[], status: toggle): Promise<Response>;
+  changeSecure(items: linkcode | linkcode[], status: toggle): Promise<Response> {
+    if (!Array.isArray(items)) {
+      items = [items];
+    }
+
+    return this.fetch("fileops/changeSecure", {
+      method: "POST",
+      body: JSON.stringify({
+        items,
+        status: Number(status),
       }),
     });
   }
