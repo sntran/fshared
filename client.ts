@@ -30,6 +30,7 @@ export interface FShareClient {
   changeSecure(item: linkcode, status: toggle): Promise<Response>;
   changeSecure(items: linkcode[], status: toggle): Promise<Response>;
   changeSecure(items: linkcode | linkcode[], status: toggle): Promise<Response>;
+  duplicate(item: linkcode, to: linkcode): Promise<Response>;
 }
 
 export interface ListParams {
@@ -469,6 +470,20 @@ export class Client implements FShareClient {
       body: JSON.stringify({
         items,
         status: Number(status),
+      }),
+    });
+  }
+
+  /**
+   * Duplicates file using its `linkcode` to a `linkcode` of another folder.
+   */
+  duplicate(item: linkcode, to: linkcode): Promise<Response> {
+    return this.fetch("fileops/duplicate", {
+      method: "POST",
+      body: JSON.stringify({
+        linkcode: item,
+        path: to,
+        confirm: true,
       }),
     });
   }
