@@ -17,7 +17,10 @@ class Progress extends TransformStream {
     }
 
     super({
-      transform: (chunk: Uint8Array, controller: TransformStreamDefaultController) => {
+      transform: (
+        chunk: Uint8Array,
+        controller: TransformStreamDefaultController,
+      ) => {
         completed += chunk.byteLength;
         progressBar?.render(completed);
         controller.enqueue(chunk);
@@ -25,6 +28,11 @@ class Progress extends TransformStream {
     });
   }
 }
+
+/** All optional params for the command as an object. */
+const optionalParams: Record<string, unknown> = {};
+/** Contains the command and its argument to be populated. */
+const params: Array<unknown> = [];
 
 const flags = parseFlags(Deno.args, {
   boolean: [
@@ -68,7 +76,20 @@ const flags = parseFlags(Deno.args, {
     pass: Deno.env.get("FSHARE_PASSWORD"),
     progress: true,
   },
+  /** Parses others into required and optional params */
+  unknown: (arg: string, key?: string, value?: unknown) => {
+    if (key) {
+      optionalParams[key] = value;
+    } else {
+      params.push(arg);
+    }
+  },
 });
+
+// Places the optional params to the end.
+if (Object.keys(optionalParams).length > 0) {
+  params.push(optionalParams);
+}
 
 const {
   username,
@@ -77,13 +98,15 @@ const {
   location,
   remoteName,
   progress,
-  _: [command, ...args],
+  ...otherFlags
 } = flags;
 
 let {
   output,
   size,
-} = flags;
+} = otherFlags;
+
+const [command, ...args] = params;
 
 const headers = [].concat(header).reduce((headers, header: string) => {
   const [key, value] = header.split(/:\s?/);
@@ -118,7 +141,7 @@ if (output) {
 const redirect = location ? "follow" : "manual";
 
 if (command === "download") {
-  const { url, body, headers } = await client.download(args[0], {
+  const { url, body, headers } = await client.download(args[0] as string, {
     redirect,
   });
 
@@ -134,12 +157,10 @@ if (command === "download") {
   if (body) {
     const size = Number(headers.get("Content-Length"));
     body
-      .pipeThrough(new Progress(progress? size : undefined))
+      .pipeThrough(new Progress(progress ? size : undefined))
       .pipeTo(writable);
   }
-}
-
-if (command === "upload") {
+} else if (command === "upload") {
   const input = args[0], path = args[1] || "/";
   if (!input) {
     console.error("Missing input file");
@@ -171,7 +192,7 @@ if (command === "upload") {
   const response = await client.upload(join(path, basename(input)), {
     redirect,
     headers,
-    body: body.pipeThrough(new Progress(progress? size : undefined)),
+    body: body.pipeThrough(new Progress(progress ? size : undefined)),
   });
 
   if (!response.ok) {
@@ -181,4 +202,15 @@ if (command === "upload") {
 
   const { url } = await response.json();
   console.log(url);
+} else {
+  // @ts-ignore - command is defined or just fail
+  const response = await client[command](...args);
+  if (!response.ok) {
+    console.error(
+      `Request failed with ${response.status} ${response.statusText}`,
+    );
+    Deno.exit(1);
+  }
+
+  console.log(await response.json());
 }
