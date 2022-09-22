@@ -19,6 +19,8 @@ export interface FShareClient {
   createFolder(name: string, parent: linkcode): Promise<Response>;
   rename(item: linkcode, to: string): Promise<Response>;
   move(item: linkcode, to: linkcode): Promise<Response>;
+  move(items: linkcode[], to: linkcode): Promise<Response>;
+  move(items: linkcode | linkcode[], to: linkcode): Promise<Response>;
 }
 
 export interface ListParams {
@@ -385,13 +387,19 @@ export class Client implements FShareClient {
   }
 
   /**
-   * Moves a file or folder using its `linkcode` to a new root.
+   * Moves file(s) or folder(s) using their `linkcode` to a new root.
    */
-  move(item: linkcode, to: linkcode): Promise<Response> {
+  move(item: linkcode, to: linkcode): Promise<Response>;
+  move(items: linkcode[], to: linkcode): Promise<Response>;
+  move(items: linkcode | linkcode[], to: linkcode): Promise<Response> {
+    if (!Array.isArray(items)) {
+      items = [items];
+    }
+
     return this.fetch("fileops/move", {
       method: "POST",
       body: JSON.stringify({
-        item,
+        items,
         to,
       }),
     });
