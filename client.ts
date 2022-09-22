@@ -26,7 +26,10 @@ export interface FShareClient {
   delete(items: linkcode | linkcode[]): Promise<Response>;
   createFilePass(item: linkcode, password: string): Promise<Response>;
   createFilePass(items: linkcode[], password: string): Promise<Response>;
-  createFilePass(items: linkcode | linkcode[], password: string): Promise<Response>;
+  createFilePass(
+    items: linkcode | linkcode[],
+    password: string,
+  ): Promise<Response>;
   changeSecure(item: linkcode, status: toggle): Promise<Response>;
   changeSecure(items: linkcode[], status: toggle): Promise<Response>;
   changeSecure(items: linkcode | linkcode[], status: toggle): Promise<Response>;
@@ -35,7 +38,7 @@ export interface FShareClient {
 
 export interface ListParams {
   pageIndex: number;
-  dirOnly: 0 | 1;
+  dirOnly: toggle;
   limit: number;
   path: string;
   ext: string;
@@ -364,6 +367,8 @@ export class Client implements FShareClient {
       ...params,
     };
 
+    params.dirOnly = Number(params.dirOnly) as toggle;
+
     return this.fetch("fileops/list", {
       body: new URLSearchParams(params as Record<string, string>),
     });
@@ -439,7 +444,10 @@ export class Client implements FShareClient {
    */
   createFilePass(item: linkcode, password: string): Promise<Response>;
   createFilePass(items: linkcode[], password: string): Promise<Response>;
-  createFilePass(items: linkcode | linkcode[], password: string): Promise<Response> {
+  createFilePass(
+    items: linkcode | linkcode[],
+    password: string,
+  ): Promise<Response> {
     if (!Array.isArray(items)) {
       items = [items];
     }
@@ -460,7 +468,10 @@ export class Client implements FShareClient {
    */
   changeSecure(item: linkcode, status: toggle): Promise<Response>;
   changeSecure(items: linkcode[], status: toggle): Promise<Response>;
-  changeSecure(items: linkcode | linkcode[], status: toggle): Promise<Response> {
+  changeSecure(
+    items: linkcode | linkcode[],
+    status: toggle,
+  ): Promise<Response> {
     if (!Array.isArray(items)) {
       items = [items];
     }
