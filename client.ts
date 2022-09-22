@@ -60,6 +60,66 @@ export class Client implements FShareClient {
     this.#token = "";
   }
 
+  /**
+   * Shortcut function to fetch an authenticated endpoint.
+   *
+   * The optional `init` object can be used to customize the request.
+   * If `init.method` is "POST", `init.body` is expected to be a JSON string.
+   * Otherwise, if `init.body` is a URLSearchParams, it will be converted to a
+   * query string.
+   *
+   * `init.headers` will be merged with the client's headers.
+   */
+  private async fetch(
+    endpoint: string,
+    init: RequestInit = {},
+  ): Promise<Response> {
+    const headers = new Headers(this.#headers);
+    let token = this.#token;
+
+    if (!token) {
+      const response = await this.login();
+      if (!response.ok) {
+        return response;
+      }
+      token = this.#token;
+    }
+
+    // Clears "Authorization" header before passing to fetch.
+    headers.delete("Authorization");
+
+    const {
+      method,
+      headers: headersInit,
+      body: bodyInit,
+      redirect,
+    } = init;
+
+    let url = `${API_URL}/${endpoint}`;
+    let body: string | undefined;
+    if (bodyInit) {
+      if (method === "POST") {
+        body = JSON.stringify({
+          // Parses back stringified JSON so we can add `token` to it.
+          ...JSON.parse(bodyInit as string),
+          token,
+        });
+      } else {
+        url += `?${bodyInit as URLSearchParams}`;
+      }
+    }
+
+    return fetch(url, {
+      method,
+      headers: {
+        ...Object.fromEntries(headers),
+        ...headersInit,
+      },
+      body,
+      redirect,
+    });
+  }
+
   async login(): Promise<Response> {
     const headers = this.#headers;
     const authorization = headers.get("Authorization");
@@ -113,11 +173,7 @@ export class Client implements FShareClient {
    * Gets user's information.
    */
   user(): Promise<Response> {
-    const headers = this.#headers;
-
-    return fetch(`${API_URL}/user/get`, {
-      headers,
-    });
+    return this.fetch("user/get");
   }
 
   /**
@@ -154,22 +210,9 @@ export class Client implements FShareClient {
    * ```
    */
   async upload(url: string | URL, init: RequestInit = {}): Promise<Response> {
-    const headers = new Headers(this.#headers);
-    let token = this.#token;
-    if (!token) {
-      const response = await this.login();
-      if (!response.ok) {
-        return response;
-      }
-      token = this.#token;
-    }
-
-    // Clears "Authorization" header before passing to fetch.
-    headers.delete("Authorization");
-
     const { pathname } = new URL(url, "https://www.fshare.vn/");
     const segments = pathname.split("/");
-    const name = segments.pop();
+    const name = segments.pop() || "";
     let path = segments.join("/");
     if (!path) {
       path = "/";
@@ -184,14 +227,12 @@ export class Client implements FShareClient {
 
     const size = Number(new Headers(headersInit).get("Content-Length"));
 
-    let response = await fetch(`${API_URL}/session/upload`, {
+    let response = await this.fetch("session/upload", {
       method,
-      headers,
       body: JSON.stringify({
         name,
         size: `${size}`,
         path,
-        token,
         /** @TODO let the user pass this in. */
         secured: 1, // 1: private, 0: public
       }),
@@ -224,7 +265,6 @@ export class Client implements FShareClient {
       response = await fetch(location, {
         method: "POST",
         headers: {
-          ...headers,
           "Accept": "*/*",
           "Accept-Language": "en-US,en;q=0.5",
           "Accept-Encoding": "gzip, deflate, br",
@@ -265,22 +305,8 @@ export class Client implements FShareClient {
    * ```
    */
   async download(url: string | URL, init: RequestInit = {}): Promise<Response> {
-    const headers = new Headers(this.#headers);
-    let token = this.#token;
-
-    if (!token) {
-      const response = await this.login();
-      if (!response.ok) {
-        return response;
-      }
-      token = this.#token;
-    }
-
-    // Clears "Authorization" header before passing to fetch.
-    headers.delete("Authorization");
-
     url = new URL(url, "https://www.fshare.vn/file/");
-    const password = url.searchParams.get("password");
+    const password = url.searchParams.get("password") || "";
     url.searchParams.delete("password");
 
     const {
@@ -288,12 +314,10 @@ export class Client implements FShareClient {
       redirect = "follow",
     } = init;
 
-    const response = await fetch(`${API_URL}/session/download`, {
+    const response = await this.fetch("session/download", {
       method,
-      headers,
       body: JSON.stringify({
-        url,
-        token,
+        url: url.href,
         password,
       }),
     });
@@ -311,10 +335,7 @@ export class Client implements FShareClient {
       throw new Error(`Redirected to ${location}`);
     }
 
-    return fetch(location, {
-      method: "GET",
-      headers,
-    });
+    return fetch(location);
   }
 
   /**
@@ -329,11 +350,9 @@ export class Client implements FShareClient {
       ext: "",
       ...params,
     };
-    const headers = this.#headers;
-    const searchParams = new URLSearchParams(params as Record<string, string>);
 
-    return fetch(`${API_URL}/fileops/list?${searchParams}`, {
-      headers,
+    return this.fetch("fileops/list", {
+      body: new URLSearchParams(params as Record<string, string>),
     });
   }
 
@@ -342,23 +361,11 @@ export class Client implements FShareClient {
    *
    * The parent can be `0` for root, or `linkcode` of another folder.
    */
-  async createFolder(name: string, parent: linkcode = "0"): Promise<Response> {
-    const headers = this.#headers;
-    let token = this.#token;
-    if (!token) {
-      const response = await this.login();
-      if (!response.ok) {
-        return response;
-      }
-      token = this.#token;
-    }
-
-    return fetch(`${API_URL}/fileops/createFolder`, {
+  createFolder(name: string, parent: linkcode = "0"): Promise<Response> {
+    return this.fetch("fileops/createFolder", {
       method: "POST",
-      headers,
       body: JSON.stringify({
         name,
-        token,
         in_dir: parent,
       }),
     });
@@ -367,24 +374,12 @@ export class Client implements FShareClient {
   /**
    * Renames a file or folder using its `linkcode`.
    */
-  async rename(item: linkcode, to: string): Promise<Response> {
-    const headers = this.#headers;
-    let token = this.#token;
-    if (!token) {
-      const response = await this.login();
-      if (!response.ok) {
-        return response;
-      }
-      token = this.#token;
-    }
-
-    return fetch(`${API_URL}/fileops/rename`, {
+  rename(item: linkcode, to: string): Promise<Response> {
+    return this.fetch("fileops/rename", {
       method: "POST",
-      headers,
       body: JSON.stringify({
         file: item,
         new_name: to,
-        token,
       }),
     });
   }
@@ -392,24 +387,12 @@ export class Client implements FShareClient {
   /**
    * Moves a file or folder using its `linkcode` to a new root.
    */
-  async move(item: linkcode, to: linkcode): Promise<Response> {
-    const headers = this.#headers;
-    let token = this.#token;
-    if (!token) {
-      const response = await this.login();
-      if (!response.ok) {
-        return response;
-      }
-      token = this.#token;
-    }
-
-    return fetch(`${API_URL}/fileops/move`, {
+  move(item: linkcode, to: linkcode): Promise<Response> {
+    return this.fetch("fileops/move", {
       method: "POST",
-      headers,
       body: JSON.stringify({
         item,
         to,
-        token,
       }),
     });
   }
