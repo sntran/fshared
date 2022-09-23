@@ -89,8 +89,8 @@ Get user's file/folder list
 fshare list --pageIndex=0 dirOnly=0 --limit=100 --path="" --ext=""
 ```
 
-Creates a folder under a parent folder.
-The parent can be `0` for root, or `linkcode` of another folder.
+Creates a folder under a parent folder. The parent can be `0` for root, or
+`linkcode` of another folder.
 
 ```shell
 fshare createFolder name parentLinkcode
@@ -120,8 +120,8 @@ Sets password for file(s) using their `linkcode`.
 fshare createFilePass linkcode password
 ```
 
-Toggles files(s) secure storage using their `linkcode`.
-Setting `status` 1 to put the items in secure storage, 0 to remove them.
+Toggles files(s) secure storage using their `linkcode`. Setting `status` 1 to
+put the items in secure storage, 0 to remove them.
 
 ```shell
 fshare changeSecure linkcode 1
