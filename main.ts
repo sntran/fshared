@@ -2,32 +2,7 @@
 
 import { basename, join, parseFlags, ProgressBar } from "./deps.ts";
 
-import { Client } from "./client.ts";
-
-/**
- * Displays progress of a ReadableStream.
- */
-class Progress extends TransformStream {
-  constructor(total?: number) {
-    let progressBar: ProgressBar, completed = 0;
-    if (total) {
-      progressBar = new ProgressBar({
-        total,
-      });
-    }
-
-    super({
-      transform: (
-        chunk: Uint8Array,
-        controller: TransformStreamDefaultController,
-      ) => {
-        completed += chunk.byteLength;
-        progressBar?.render(completed);
-        controller.enqueue(chunk);
-      },
-    });
-  }
-}
+import { Client, Progress } from "./mod.ts";
 
 /** All optional params for the command as an object. */
 const optionalParams: Record<string, unknown> = {};
@@ -155,10 +130,17 @@ if (command === "download") {
   }
 
   if (body) {
-    const size = Number(headers.get("Content-Length"));
+    const total = Number(headers.get("Content-Length"));
+    const progressBar = progress ? new ProgressBar({ total }) : undefined;
     body
-      .pipeThrough(new Progress(progress ? size : undefined))
+      .pipeThrough(
+        new Progress((progress) => {
+          progressBar?.render(progress);
+        }),
+      )
       .pipeTo(writable);
+  } else {
+    console.log(headers.get("Location"));
   }
 } else if (command === "upload") {
   const input = args[0], path = args[1] || "/";
@@ -189,10 +171,15 @@ if (command === "download") {
 
   headers["Content-Length"] = size;
 
+  const progressBar = progress ? new ProgressBar({ total: size }) : undefined;
   const response = await client.upload(join(path, basename(input)), {
     redirect,
     headers,
-    body: body.pipeThrough(new Progress(progress ? size : undefined)),
+    body: body.pipeThrough(
+      new Progress((progress) => {
+        progressBar?.render(progress);
+      }),
+    ),
   });
 
   if (!response.ok) {

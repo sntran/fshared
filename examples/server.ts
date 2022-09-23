@@ -1,3 +1,4 @@
+#!/usr/bin/env -S deno run --unstable --allow-net --allow-env
 import { router } from "https://crux.land/router@0.0.12";
 import { Client } from "../client.ts";
 
